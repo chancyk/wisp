@@ -140,7 +140,7 @@ fn makeOpArray(
 
 test "ops" {
     try expectEqual(
-        @as(*const anyopaque, @ptrCast(Ctls.QUOTE)),
+        @as(*const anyopaque, @ptrCast(&Ctls.QUOTE)),
         jets[0].fun,
     );
 }

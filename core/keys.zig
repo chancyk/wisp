@@ -181,8 +181,8 @@ test "key zb32" {
     const keyC = generate(&std.crypto.random);
 
     try std.testing.expectApproxEqAbs(
-        @floatFromInt(keyB.day),
-        @floatFromInt(keyC.day),
+        @as(f64, @floatFromInt(keyB.day)),
+        @as(f64, @floatFromInt(keyC.day)),
         1,
     );
 

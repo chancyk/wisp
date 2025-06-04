@@ -3,6 +3,7 @@ const std = @import("std");
 pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
     const standardTarget = b.standardTargetOptions(.{});
+    const nativeTarget = b.resolveTargetQuery(.{});
     const wasiTarget = b.resolveTargetQuery(.{
         .cpu_arch = .wasm32,
         .os_tag = .wasi,
@@ -13,13 +14,18 @@ pub fn build(b: *std.Build) void {
         .target = standardTarget,
     });
 
+    const ziglyphNative = b.dependency("ziglyph", .{
+        .optimize = optimize,
+        .target = nativeTarget,
+    });
+
     const boot = b.addExecutable(.{
         .name = "wisp-mkboot",
         .root_source_file = b.path("boot.zig"),
-        .target = standardTarget,
+        .target = nativeTarget,
     });
 
-    boot.root_module.addImport("ziglyph", ziglyph.module("ziglyph"));
+    boot.root_module.addImport("ziglyph", ziglyphNative.module("ziglyph"));
 
     const bootRun = b.addRunArtifact(boot);
 
@@ -110,6 +116,7 @@ pub fn build(b: *std.Build) void {
 
     tests.step.dependOn(&bootRun.step);
     exe.step.dependOn(&bootRun.step);
+    wasmLib.step.dependOn(&bootRun.step);
     //    wasmExe.step.dependOn(&bootRun.step);
 
     b.installArtifact(exe);
