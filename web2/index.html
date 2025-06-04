@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wisp WASM</title>
+</head>
+<body>
+    <h1>Wisp WebAssembly Runtime</h1>
+    <div id="output"></div>
+    <textarea id="input" placeholder="Enter Wisp code here..." rows="10" cols="80">(+ 1 2 3)</textarea>
+    <br>
+    <button onclick="runWisp()">Run</button>
+
+    <script type="module">
+        import { Wisp, WASD } from './wisp.js';
+        import WASI from './wasi.js';
+
+        let wisp;
+        let wasd;
+
+        async function loadWasm() {
+            try {
+                const wasi = new WASI();
+                wasd = new WASD();
+
+                // Override console methods to capture output
+                const originalLog = console.log;
+                const originalWarn = console.warn;
+
+                console.log = function(...args) {
+                    document.getElementById('output').textContent += args.join(' ') + '\n';
+                    originalLog.apply(console, args);
+                };
+
+                console.warn = function(...args) {
+                    document.getElementById('output').textContent += args.join(' ') + '\n';
+                    originalWarn.apply(console, args);
+                };
+
+                const response = await fetch('/wisp.wasm');
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch WASM: ${response.status}`);
+                }
+
+                const wasmModule = await WebAssembly.compileStreaming(response);
+                const instance = await WebAssembly.instantiate(wasmModule, {
+                    wasi_snapshot_preview1: wasi.exports(),
+                    dom: wasd.exports(),
+                });
+
+                wasi.setMemory(instance.exports.memory);
+
+                wisp = new Wisp(instance);
+                wasd.setWisp(wisp);
+
+                console.log('Wisp WASM loaded successfully!');
+                document.getElementById('input').disabled = false;
+
+            } catch (error) {
+                console.error('Failed to load WASM:', error);
+                document.getElementById('output').textContent = `Error loading WASM: ${error.message}\n`;
+            }
+        }
+
+        window.runWisp = function() {
+            const input = document.getElementById('input').value;
+            if (!wisp) {
+                document.getElementById('output').textContent += 'WASM module not loaded\n';
+                return;
+            }
+
+            try {
+                console.log(`> ${input}`);
+
+                // Read the input
+                const expr = wisp.read(input);
+
+                // Evaluate it
+                const result = wisp.eval(expr);
+
+                // Convert result back to displayable form
+                const output = wasd.convertFromWisp(result);
+                console.log(output);
+
+            } catch (error) {
+                console.error(`Error: ${error.message}`);
+            }
+        };
+
+        // Load WASM when page loads
+        window.addEventListener('load', loadWasm);
+
+        // Initially disable input until WASM loads
+        document.getElementById('input').disabled = true;
+    </script>
+</body>
+</html>
